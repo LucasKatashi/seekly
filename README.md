@@ -3,7 +3,7 @@
 <p align="center">
   <a href="#installation-instructions">Installation</a> •
   <a href="#usage">Usage</a> •
-  <a href="#running-seekly">Running Seekly</a> •
+  <a href="#running-seekly">Running Seekly</a>
 </p>
 
 ---
@@ -11,6 +11,7 @@
 Seekly is a horizontal enumeration tool. This means the tool searches for domains related to an initial domain by leveraging [WhoisXMLAPI's](https://www.whoisxmlapi.com/) APIs.
 
 # Installation Instructions
+Seekly requires `go 1.24.1` to install successfully.
 ```sh
 go install github.com/LucasKatashi/seekly/cmd/seekly@latest
 ```
