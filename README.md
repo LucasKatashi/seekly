@@ -12,7 +12,7 @@ Seekly is a horizontal enumeration tool. This means the tool searches for domain
 
 # Installation Instructions
 ```sh
-go install -v github.com/LucasKatashi/seekly@latest
+go install github.com/LucasKatashi/seekly/cmd/seekly@latest
 ```
 
 # Usage
