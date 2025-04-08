@@ -59,7 +59,7 @@ Will result in a query like:
 
 Seekly also integrates seamlessly in toolchains to further refine your recon. For example:
 ```sh
-seekly -domain example.com -wildcard -silent | subfinder -all -silent | httpx -fr -mc 200 -t 150 -silent | katana -jc -jsl -d 4 -c 20 -silent --output example.txt
+seekly -domain example.com -silent | subfinder -all -silent | httpx -fr -mc 200 -t 150 -silent | katana -jc -jsl -d 4 -c 20 -silent --output example.txt
 ```
 
 > ⚠️ Keep in mind that Seekly can significantly consume your WhoisXMLAPI credits, as it performs recursive lookups using WHOIS queries, Reverse WHOIS, the Domains & Subdomains API, and more.
