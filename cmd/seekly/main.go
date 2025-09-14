@@ -28,7 +28,7 @@ func main() {
 	if *apiKey == "" {
 		*apiKey = os.Getenv("WhoisXMLAPIKey")
 		if *apiKey == "" {
-			fmt.Printf("[%s] The \"WhoisXMLAPIKey\" API key is not defined either in your environment variables or via a flag.\n      To do so, use `export WhoisXMLApiKey=\"API_KEY\"` or `--api-key API_KEY` when running the tool.\n\n      The API key can be obtained at: https://user.whoisxmlapi.com/products\n", red.Sprint("ERR"))
+			fmt.Printf("[%s] The \"WhoisXMLAPIKey\" API key is not defined either in your environment variables or via a flag.\n      To do so, use `export WhoisXMLAPIKey=\"API_KEY\"` or `--api-key API_KEY` when running the tool.\n\n      The API key can be obtained at: https://user.whoisxmlapi.com/products\n", red.Sprint("ERR"))
 			os.Exit(1)
 		}
 	}
