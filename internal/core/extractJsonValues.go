@@ -7,6 +7,15 @@ import (
 
 var emailRegex = regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
 
+var relevantContactFields = map[string]struct{}{
+	"registrant":             {},
+	"registrantContact":      {},
+	"administrativeContact":  {},
+	"technicalContact":       {},
+	"billingContact":         {},
+	"zoneContact":            {},
+}
+
 func ExtractJsonValues(jsonData []byte) []string {
 	var decodedData interface{}
 	if err := json.Unmarshal(jsonData, &decodedData); err != nil {
@@ -15,6 +24,26 @@ func ExtractJsonValues(jsonData []byte) []string {
 
 	uniqueStrings := make(map[string]struct{})
 
+	var extractFromContact func(contact interface{})
+	extractFromContact = func(contact interface{}) {
+		contactMap, ok := contact.(map[string]interface{})
+		if !ok {
+			return
+		}
+
+		if name, ok := contactMap["name"].(string); ok && name != "" {
+			uniqueStrings[name] = struct{}{}
+		}
+
+		if org, ok := contactMap["organization"].(string); ok && org != "" {
+			uniqueStrings[org] = struct{}{}
+		}
+
+		if email, ok := contactMap["email"].(string); ok && email != "" {
+			uniqueStrings[email] = struct{}{}
+		}
+	}
+
 	var traverseData func(data interface{})
 
 	traverseData = func(data interface{}) {
@@ -22,23 +51,20 @@ func ExtractJsonValues(jsonData []byte) []string {
 
 		case map[string]interface{}:
 			for key, value := range v {
-				if key == "name" || key == "email" || key == "contactEmail" || key == "domainsList" {
-					if key == "domainsList" {
-						if arr, ok := value.([]interface{}); ok {
-							for _, item := range arr {
-								if s, ok := item.(string); ok {
-									uniqueStrings[s] = struct{}{}
-								}
+				if key == "domainsList" {
+					if arr, ok := value.([]interface{}); ok {
+						for _, item := range arr {
+							if s, ok := item.(string); ok {
+								uniqueStrings[s] = struct{}{}
 							}
-						}
-					} else {
-						if strValue, ok := value.(string); ok {
-							uniqueStrings[strValue] = struct{}{}
 						}
 					}
 				}
-				// Extract emails from rawText and strippedText fields using regex
-				if key == "rawText" || key == "strippedText" {
+
+				if _, isRelevant := relevantContactFields[key]; isRelevant {
+					extractFromContact(value)
+				}
+				if key == "rawText" {
 					if strValue, ok := value.(string); ok {
 						emails := emailRegex.FindAllString(strValue, -1)
 						for _, email := range emails {
@@ -46,6 +72,7 @@ func ExtractJsonValues(jsonData []byte) []string {
 						}
 					}
 				}
+
 				traverseData(value)
 			}
 		case []interface{}:
