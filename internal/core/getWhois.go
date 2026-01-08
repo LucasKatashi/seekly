@@ -25,7 +25,7 @@ func GetWhois(domain string, apiKey string) []string {
 		APIKey:         apiKey,
 		DomainName:     domain,
 		OutputFormat:   "JSON",
-		IgnoreRawTexts: 1,
+		IgnoreRawTexts: 0,
 	}
 
 	red := color.New(color.FgRed)

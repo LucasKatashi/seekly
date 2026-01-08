@@ -2,7 +2,10 @@ package core
 
 import (
 	"encoding/json"
+	"regexp"
 )
+
+var emailRegex = regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
 
 func ExtractJsonValues(jsonData []byte) []string {
 	var decodedData interface{}
@@ -31,6 +34,15 @@ func ExtractJsonValues(jsonData []byte) []string {
 					} else {
 						if strValue, ok := value.(string); ok {
 							uniqueStrings[strValue] = struct{}{}
+						}
+					}
+				}
+				// Extract emails from rawText and strippedText fields using regex
+				if key == "rawText" || key == "strippedText" {
+					if strValue, ok := value.(string); ok {
+						emails := emailRegex.FindAllString(strValue, -1)
+						for _, email := range emails {
+							uniqueStrings[email] = struct{}{}
 						}
 					}
 				}
