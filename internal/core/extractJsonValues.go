@@ -3,17 +3,38 @@ package core
 import (
 	"encoding/json"
 	"regexp"
+	"strings"
 )
 
-var emailRegex = regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
-
 var relevantContactFields = map[string]struct{}{
-	"registrant":             {},
-	"registrantContact":      {},
-	"administrativeContact":  {},
-	"technicalContact":       {},
-	"billingContact":         {},
-	"zoneContact":            {},
+	"registrant":        {},
+	"registrantContact": {},
+}
+
+var (
+	ownerCRegex = regexp.MustCompile(`owner-c:\s*(\S+)`)
+	nicHdlRegex = regexp.MustCompile(`nic-hdl-br:\s*(\S+)`)
+	emailRegex  = regexp.MustCompile(`e-mail:\s*(\S+)`)
+)
+
+func extractOwnerEmailFromRawText(rawText string) string {
+	ownerCMatch := ownerCRegex.FindStringSubmatch(rawText)
+	if len(ownerCMatch) < 2 {
+		return ""
+	}
+	ownerHandle := ownerCMatch[1]
+
+	blocks := strings.Split(rawText, "nic-hdl-br:")
+	for _, block := range blocks[1:] {
+		nicMatch := nicHdlRegex.FindStringSubmatch("nic-hdl-br:" + block)
+		if len(nicMatch) >= 2 && nicMatch[1] == ownerHandle {
+			emailMatch := emailRegex.FindStringSubmatch(block)
+			if len(emailMatch) >= 2 {
+				return emailMatch[1]
+			}
+		}
+	}
+	return ""
 }
 
 func ExtractJsonValues(jsonData []byte) []string {
@@ -64,11 +85,12 @@ func ExtractJsonValues(jsonData []byte) []string {
 				if _, isRelevant := relevantContactFields[key]; isRelevant {
 					extractFromContact(value)
 				}
+
 				if key == "rawText" {
 					if strValue, ok := value.(string); ok {
-						emails := emailRegex.FindAllString(strValue, -1)
-						for _, email := range emails {
-							uniqueStrings[email] = struct{}{}
+						ownerEmail := extractOwnerEmailFromRawText(strValue)
+						if ownerEmail != "" {
+							uniqueStrings[ownerEmail] = struct{}{}
 						}
 					}
 				}
