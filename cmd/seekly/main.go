@@ -4,11 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/LucasKatashi/seekly/internal/core"
 	"github.com/LucasKatashi/seekly/internal/ui"
-	"github.com/fatih/color"
 )
 
 func main() {
@@ -18,9 +18,10 @@ func main() {
 	apiKey := flag.String("api-key", "", "")
 	output := flag.String("output", "", "")
 
-	red := color.New(color.FgRed)
-	green := color.New(color.FgGreen)
-
+	fail := func(err error) {
+		fmt.Fprintf(os.Stderr, "[ERR] %v\n", err)
+		os.Exit(1)
+	}
 	flag.Usage = ui.CustomUsage
 	flag.Parse()
 	ui.PrintBanner(*silent)
@@ -28,45 +29,66 @@ func main() {
 	if *apiKey == "" {
 		*apiKey = os.Getenv("WhoisXMLAPIKey")
 		if *apiKey == "" {
-			fmt.Printf("[%s] The \"WhoisXMLAPIKey\" API key is not defined either in your environment variables or via a flag.\n      To do so, use `export WhoisXMLAPIKey=\"API_KEY\"` or `--api-key API_KEY` when running the tool.\n\n      The API key can be obtained at: https://user.whoisxmlapi.com/products\n", red.Sprint("ERR"))
-			os.Exit(1)
+			fail(fmt.Errorf("API key is missing: set WhoisXMLAPIKey or use --api-key"))
 		}
 	}
 
-	if *domain != "" {
-		values := core.GetWhois(*domain, *apiKey)
-
-		whoisDomains := core.GetRevWhois(values, *apiKey)
-
-		var outputDomains []string
-
-		if *wildcard {
-			parts := strings.SplitN(*domain, ".", 2)
-			wildcardDomain := fmt.Sprintf("*%s*.%s", parts[0], parts[1])
-
-			domains := core.GetDomains(wildcardDomain, *apiKey)
-
-			allDomains := append(whoisDomains, domains...)
-
-			uniqueDomains := make(map[string]bool)
-			for _, d := range allDomains {
-				uniqueDomains[d] = true
-			}
-
-			for domain := range uniqueDomains {
-				outputDomains = append(outputDomains, domain)
-			}
-		} else {
-			outputDomains = whoisDomains
+	*domain = strings.TrimSuffix(strings.TrimSpace(*domain), ".")
+	parts := strings.SplitN(*domain, ".", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" || strings.ContainsAny(*domain, "/: \t\n") {
+		fail(fmt.Errorf("--domain must be a domain name such as example.com (not a URL)"))
+	}
+	if err := core.CheckAPIKey(*apiKey); err != nil {
+		fail(err)
+	}
+	values, err := core.GetWhois(*domain, *apiKey)
+	if err != nil {
+		fail(fmt.Errorf("no domains returned: WHOIS lookup failed: %w", err))
+	}
+	var outputDomains []string
+	if len(values) == 0 {
+		fmt.Fprintln(os.Stderr, "[WARN] WHOIS returned no usable registrant name, organization, or email. These fields may be redacted, private, or absent; Reverse WHOIS was skipped.")
+	} else {
+		outputDomains, err = core.GetRevWhois(values, *apiKey)
+		if err != nil {
+			fail(fmt.Errorf("enumeration failed; results may be incomplete: %w", err))
 		}
-
-		if *output != "" {
-			core.OutputFile(outputDomains, *output)
-			fmt.Printf("[%s] Domains saved in %s\n", green.Sprint("OK"), *output)
-		} else {
-			for _, domain := range outputDomains {
-				fmt.Println(domain)
-			}
+		if len(outputDomains) == 0 {
+			fmt.Fprintln(os.Stderr, "[INFO] Reverse WHOIS succeeded but found no domains matching the extracted registrant details in current records.")
+		}
+	}
+	if *wildcard {
+		wildcardDomain := fmt.Sprintf("*%s*.%s", parts[0], parts[1])
+		domains, err := core.GetDomains(wildcardDomain, *apiKey)
+		if err != nil {
+			fail(fmt.Errorf("enumeration failed; results may be incomplete: %w", err))
+		}
+		if len(domains) == 0 {
+			fmt.Fprintf(os.Stderr, "[INFO] Domains & Subdomains Discovery succeeded but found no domains matching %q in the provider's database.\n", wildcardDomain)
+		}
+		outputDomains = append(outputDomains, domains...)
+	}
+	sort.Strings(outputDomains)
+	unique := outputDomains[:0]
+	for _, domain := range outputDomains {
+		if len(unique) == 0 || unique[len(unique)-1] != domain {
+			unique = append(unique, domain)
+		}
+	}
+	outputDomains = unique
+	if len(outputDomains) == 0 {
+		fmt.Fprintln(os.Stderr, "[INFO] No domains found. See the lookup explanations above; an empty result does not mean the API key is invalid.")
+	} else {
+		fmt.Fprintf(os.Stderr, "[OK] Enumeration completed: %d unique domains found.\n", len(outputDomains))
+	}
+	if *output != "" {
+		if err := core.OutputFile(outputDomains, *output); err != nil {
+			fail(err)
+		}
+		fmt.Fprintf(os.Stderr, "[OK] Domains saved in %s\n", *output)
+	} else {
+		for _, domain := range outputDomains {
+			fmt.Println(domain)
 		}
 	}
 }

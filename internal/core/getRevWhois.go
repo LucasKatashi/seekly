@@ -1,15 +1,6 @@
 package core
 
-import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"os"
-
-	"github.com/fatih/color"
-)
+import "sort"
 
 const RevWhoisXMLAPI = "https://reverse-whois.whoisxmlapi.com/api/v2"
 
@@ -25,52 +16,28 @@ type RevWhoisData struct {
 	BasicSearchTerms BasicSearchTerms `json:"basicSearchTerms"`
 }
 
-func GetRevWhois(queries []string, apiKey string) []string {
+func GetRevWhois(queries []string, apiKey string) ([]string, error) {
 	allDomainsMap := make(map[string]struct{})
-
 	for _, query := range queries {
-		jsonParse := RevWhoisData{
-			ApiKey:     apiKey,
-			SearchType: "current",
-			Mode:       "purchase",
-			Punycode:   true,
-			BasicSearchTerms: BasicSearchTerms{
-				Include: []string{query},
-			},
-		}
-
-		red := color.New(color.FgRed)
-
-		jsonData, err := json.Marshal(jsonParse)
+		object, err := requestAPI(RevWhoisXMLAPI, "Reverse WHOIS API", apiKey, RevWhoisData{
+			ApiKey: apiKey, SearchType: "current", Mode: "purchase", Punycode: true,
+			BasicSearchTerms: BasicSearchTerms{Include: []string{query}},
+		})
 		if err != nil {
-			fmt.Printf("[%s] Failed to marshal JSON object: %v\n", red.Sprint("ERR"), err)
-			os.Exit(1)
+			return nil, err
 		}
-
-		resp, err := http.Post(RevWhoisXMLAPI, "application/json", bytes.NewBuffer(jsonData))
+		domains, err := domainList(object, "Reverse WHOIS API")
 		if err != nil {
-			fmt.Printf("[%s] Failed to perform HTTP POST to RevWhoisXMLAPI (%s): %v\n", red.Sprint("ERR"), RevWhoisXMLAPI, err)
-			os.Exit(1)
+			return nil, err
 		}
-		defer resp.Body.Close()
-
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Printf("[%s] Failed to read response body from RevWhoisXMLAPI (%s): %v\n", red.Sprint("ERR"), RevWhoisXMLAPI, err)
-			os.Exit(1)
-		}
-
-		domains := ExtractJsonValues(body)
-
-		for _, d := range domains {
-			allDomainsMap[d] = struct{}{}
+		for _, domain := range domains {
+			allDomainsMap[domain] = struct{}{}
 		}
 	}
-
-	var allDomains []string
-	for d := range allDomainsMap {
-		allDomains = append(allDomains, d)
+	allDomains := make([]string, 0, len(allDomainsMap))
+	for domain := range allDomainsMap {
+		allDomains = append(allDomains, domain)
 	}
-
-	return allDomains
+	sort.Strings(allDomains)
+	return allDomains, nil
 }

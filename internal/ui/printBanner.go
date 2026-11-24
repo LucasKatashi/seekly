@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/fatih/color"
 )
@@ -16,6 +17,6 @@ func PrintBanner(silent bool) {
                     /___/`
 
 		green := color.New(color.FgGreen)
-		fmt.Printf("%s\n	   by: LucasKatashi\n\n", green.Sprint(art))
+		fmt.Fprintf(os.Stderr, "%s\n	   by: LucasKatashi\n\n", green.Sprint(art))
 	}
 }

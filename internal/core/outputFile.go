@@ -4,24 +4,22 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-
-	"github.com/fatih/color"
 )
 
-func OutputFile(domains []string, filename string) {
-	red := color.New(color.FgRed)
-
+func OutputFile(domains []string, filename string) error {
 	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		fmt.Printf("[%s] Failed to create output file '%s': %v\n", red.Sprint("ERR"), filename, err)
-		os.Exit(1)
+		return fmt.Errorf("cannot create output file: %w", err)
 	}
-
+	defer file.Close()
 	writer := bufio.NewWriter(file)
-
 	for _, domain := range domains {
-		writer.WriteString(domain + "\n")
+		if _, err := writer.WriteString(domain + "\n"); err != nil {
+			return fmt.Errorf("cannot write output file: %w", err)
+		}
 	}
-
-	writer.Flush()
+	if err := writer.Flush(); err != nil {
+		return fmt.Errorf("cannot flush output file: %w", err)
+	}
+	return nil
 }
